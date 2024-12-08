@@ -1,3 +1,7 @@
+"""
+File for 3D stacks visualization.
+"""
+
 import numpy as np
 from matplotlib import pyplot as plt
 import torch

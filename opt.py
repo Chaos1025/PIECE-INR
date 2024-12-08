@@ -223,9 +223,7 @@ def set_opts():
     parser.add_argument("--training_lr_obj", type=float, default=1e-3)
     parser.add_argument("--training_lr_hash", type=float, default=1e-4)
     parser.add_argument("--training_lr_ker", type=float, default=1e-3)  # 1e-2
-    parser.add_argument("--kernel_max_val", type=float, default=1e-2)
-    parser.add_argument("--kernel_order_up_to", type=int, default=4)  # True, False
-
+    
     # title: Loss function control
     parser.add_argument(
         "--data_fidelity_term", type=str, default="mse", choices=["mse", "ssim", "mae"]

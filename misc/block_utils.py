@@ -1,3 +1,11 @@
+"""
+File for block-wise reconstruction management.
+Inspired by the work of [1].
+
+[1]. Liu, R., Sun, Y., Zhu, J., Tian, L. & Kamilov, U. S. Recovery of continuous 3D refractive index maps from discrete intensity-only measurements using neural fields. Nature Machine Intelligence 4, 781–791 (2022).
+
+"""
+
 import numpy as np
 import torch.nn as nn
 from typing import Union

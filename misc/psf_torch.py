@@ -1,3 +1,10 @@
+"""
+PSF calculator using angular spectrum method, copied from the paper [1].
+
+[1]. Kang, I., Zhang, Q., Yu, S. X. & Ji, N. Coordinate-based neural representations for computational adaptive optics in widefield microscopy. Nat Mach Intell 6, 714–725 (2024).
+
+"""
+
 import numpy as np
 import torch
 

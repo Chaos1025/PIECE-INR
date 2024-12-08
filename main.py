@@ -1,4 +1,5 @@
-""" Main program for reconstruction
+""" 
+Main program for reconstruction
 Both single and multi-process reconstruction are supported.
 """
 

@@ -33,33 +33,6 @@ from typing import Union
 dtype = torch.cuda.FloatTensor
 
 
-def prop_obj(
-    obj: Union[torch.Tensor, np.ndarray],
-    psf: Union[torch.Tensor, np.ndarray],
-    pad_value: float = 0,
-):
-    """Generate measurements from a known 3d psf and 3d ref-object.
-    Spread the object with psf, a forward physical process.
-    Calculate the convolution of object and psf.
-    achieve it by fft method, on cpu.
-    """
-    if type(obj) is np.ndarray:
-        obj = torch.from_numpy(obj).type(dtype)
-    if type(psf) is np.ndarray:
-        psf = torch.from_numpy(psf).type(dtype)
-
-    d, w, h = psf.shape  # [z, x, y]
-    obj_pad = F.pad(
-        obj, (h, h, w, w, d, d), mode="constant", value=pad_value
-    )  # pad along the 1st dim, z-axis
-    psf_pad = F.pad(psf, (h, h, w, w, d, d), mode="constant", value=0)
-    y_pad = fft_convolve(obj_pad, psf_pad, mode="fftn")
-    y_ = y_pad[d:-d, w:-w, h:-h]
-    y_max = y_.max().item()
-    y_ = y_ / y_max
-    return y_, y_max
-
-
 def check_shape(kernel_shape: list, sample_shape: list):
     """Check for proper shape of kernel and sample
     Kernel shape plus sample shape should not larger than three times of sample shape,
@@ -181,31 +154,22 @@ class MicroDataLoader:
     def load(
         self,
         PSF_shape=None,
-        invert_ref: bool = False,
-        invert_sample: bool = False,
         psf_constraint: bool = False,
         r_ratio=1,
-        bg_value=1,
     ) -> dict:
-        """Load datas for recovery in bright field mode.
-        In 'simulator' mode, the reference object is loaded from a tiff file,
-            which is default a 3d numpy array with shape (d, w, h),
-            captured using fluorescence microscope or confocal microscope.
-        So if we want to simulate a bright field measurement, we need to
-            whether invert the reference object, or invert the sample object.
-        #! And it's a key point to pay attention to the background value,
-            which is 0 in fluorescence microscope, 1 if we just invert ref.
+        """Load datas for recovery in wide-field fluorescence microscope.
+        #! Note that 'simulator' is as incomplete mode.
 
         In 'solver' mode, the measurement is loaded from a tiff file,
-            which is captured in real bright field microscope.
+            which is captured in real wide-field microscope.
 
         Args:
-            invert_ref: whether to invert the reference object.
-            invert_sample: whether to invert the sample object.
+            PSF_shape: the shape of the psf, a list of 3 integers.
+            psf_constraint: whether to constrain the psf in the spatial domain.
             r_ratio: the ratio of the radius of the psf support.
 
         Returns:
-            ret_pack: a dict containing the following keys:
+            ret_pack: a dict, whose several keys are:
                 ref: the reference object, a 3d numpy array.
                 psf: the psf, a 3d numpy array.
                 y: the measurement, a 3d numpy array.
@@ -268,8 +232,6 @@ class MicroDataLoader:
 
         if psf_constraint:
             psf_ = self.psf_space_constraint(psf_, r_ratio)
-        if invert_sample:
-            y_ = 1 - y_
 
         if os.path.exists(self.ref_dir) and self.ref is None:
             ret_pack["ref"] = self.load_data(self.ref_dir)

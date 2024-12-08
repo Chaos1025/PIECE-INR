@@ -1,5 +1,5 @@
-""" File to implement SSIM and mSSIM metrics for 3D images.
-
+""" 
+File for image reconstruction metrics.
 """
 
 import torch
