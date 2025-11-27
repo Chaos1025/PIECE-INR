@@ -25,9 +25,10 @@ You Zhou<sup>†</sup>, Chenyu Xu<sup>†</sup>, Zhouyu Jin<sup>†</sup>, Yanqi
 
 Code Repository of [*<u>**P**</u>hysics-<u>**I**</u>nformed <u>**E**</u>llipsoidal <u>**C**</u>oordinate <u>**E**</u>ncoding <u>**I**</u>mplicit <u>**N**</u>eural <u>**R**</u>epresentation (**PIECE-INR**) for high-resolution volumetric wide-field microscopy*](https://www.biorxiv.org/content/10.1101/2024.10.17.618813v1). In this paper, we work for axial-scanning wide-field fluorescnece microscopy restoration with INR technique, and achieve high-resolution volumetric imaging resluts by incorporating specific physical constraint and prior into the self-supervised paradigm.
 
+<div align="center">
+  <img src="./pic/PIECE-INR_pipeline.svg" alt="PIECE-INR_pipeline">
+</div>
 
-
-![PIECE-INR_pipeline](./pic/PIECE-INR_pipeline.svg)
 
 # Python Packages
 Here are versions of some important python package.
