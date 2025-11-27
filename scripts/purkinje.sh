@@ -1,0 +1,26 @@
+python main.py \
+--psf_generation "External" \
+--config "source/purkinje/config.yaml" \
+--psf_shape 50 500 500 \
+--root_dir "./source/purkinje/" \
+--data_stack_name "measurement.tif" \
+--init_stack_name "measurement.tif" \
+--exp_name "purkinje-demo_test" \
+--gpu_list 0 1 2 \
+--hessian_weight 5e-4 \
+--hessian_z_scale 1 \
+--fdmae_loss_weight 4e-3 \
+--pretraining_num_iter 1000 \
+--training_num_iter 2000 \
+--encoding_option "PIEE" \
+--zenith_encoding_angle 45 \
+--radial_encoding_angle 9 \
+--radial_encoding_depth 6 \
+--axial_pad_length 0 \
+--lateral_pad_length 20 \
+--row_picker \
+--col_picker \
+--loading_pretrained_model "True" \
+--saving_model "True" \
+--log_option "True" \
+--nerf_max_val 20 

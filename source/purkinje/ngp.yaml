@@ -1,0 +1,8 @@
+otype: "Grid"
+type: "Hash"
+n_levels: 8
+n_features_per_level: 4
+log2_hashmap_size: 20
+base_resolution: 32
+per_level_scale: 1.414213
+interpolation: "Linear"
