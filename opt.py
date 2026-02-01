@@ -17,7 +17,12 @@ def set_opts():
         help="Configuration file to specify optical system parameters",
     )
     # title: Working directory
-    parser.add_argument("--exp_dir", type=str, default="./exp/")
+    parser.add_argument(
+        "--exp_dir",
+        type=str,
+        default="./exp/",
+        help="Directory to store experiment outputs and logs",
+    )
     parser.add_argument(
         "--data_stack_name",
         type=str,
@@ -33,12 +38,31 @@ def set_opts():
     parser.add_argument(
         "--root_dir", type=str, default="./source", help="Where your data files are located"
     )
-    parser.add_argument("--psf_name", type=str, default="psf.tif")
-    parser.add_argument("--ref_name", type=str, default="sample.tif")
-    parser.add_argument("--exp_name", type=str, default="test_exp")
+    parser.add_argument(
+        "--psf_name", type=str, default="psf.tif", help="Name of the PSF file"
+    )
+    parser.add_argument(
+        "--ref_name", type=str, default="sample.tif", help="Name of the reference file"
+    )
+    parser.add_argument(
+        "--exp_name",
+        type=str,
+        default="test_exp",
+        help="Name of the current experiment",
+    )
 
-    parser.add_argument("--net_obj_save_path_pretrained_prefix", type=str, default="./rec/")
-    parser.add_argument("--net_obj_save_path_trained_prefix", type=str, default="./rec/")
+    parser.add_argument(
+        "--net_obj_save_path_pretrained_prefix",
+        type=str,
+        default="./rec/",
+        help="Directory prefix to save pretrained model weights",
+    )
+    parser.add_argument(
+        "--net_obj_save_path_trained_prefix",
+        type=str,
+        default="./rec/",
+        help="Directory prefix to save trained model weights",
+    )
 
     parser.add_argument(
         "--saving_model",
@@ -164,10 +188,29 @@ def set_opts():
             "spherical",
             "PIEE",
         ],
+        help="Positional encoding method: cartesian (naive encoding method used in NeRF), "
+        "radial_cartesian (radial encoding), gaussian (random Fourier feature encoding), "
+        "spherical (spherical encoding), PIEE (Physics-Informed Ellipsoidal encoding)",
     )
-    parser.add_argument("--freq_logscale", type=str, default="True", choices=["True", "False"])
-    parser.add_argument("--cartesian_encoding_dim", type=int, default=3)
-    parser.add_argument("--cartesian_encoding_depth", type=int, default=6)
+    parser.add_argument(
+        "--freq_logscale",
+        type=str,
+        default="True",
+        choices=["True", "False"],
+        help="Whether to use logarithmic scale for frequency encoding",
+    )
+    parser.add_argument(
+        "--cartesian_encoding_dim",
+        type=int,
+        default=3,
+        help="Dimensionality of the coordinate input for cartesian encoding",
+    )
+    parser.add_argument(
+        "--cartesian_encoding_depth",
+        type=int,
+        default=6,
+        help="Number of frequency bands for cartesian encoding",
+    )
     parser.add_argument(
         "--gaussian_scale", type=float, default=14, help="sigma in gaussian encoding"
     )
@@ -193,11 +236,36 @@ def set_opts():
         help="If too large, stripe artifacts. If too small, oversmoothened features. Typically, 6 or 7.",
     )
     # title: Network architecture
-    parser.add_argument("--nerf_num_layers", type=int, default=4)
-    parser.add_argument("--nerf_num_filters", type=int, default=128)
-    parser.add_argument("--nerf_skips", type=list, default=[2, 4, 6])
-    parser.add_argument("--nerf_beta", type=float, default=None)  # 1.0 or None (sigmoid)
-    parser.add_argument("--nerf_max_val", type=float, default=50.0)
+    parser.add_argument(
+        "--nerf_num_layers",
+        type=int,
+        default=4,
+        help="Number of layers in the NeRF network",
+    )
+    parser.add_argument(
+        "--nerf_num_filters",
+        type=int,
+        default=128,
+        help="Number of filters (neurons) per layer in the NeRF network",
+    )
+    parser.add_argument(
+        "--nerf_skips",
+        type=list,
+        default=[2, 4, 6],
+        help="Layer indices at which to add skip connections",
+    )
+    parser.add_argument(
+        "--nerf_beta",
+        type=float,
+        default=None,
+        help="Beta value for Beta activation. Use None for sigmoid activation.",
+    )
+    parser.add_argument(
+        "--nerf_max_val",
+        type=float,
+        default=50.0,
+        help="Maximum output value of the network",
+    )
     # title: Different INR architectures
     parser.add_argument(
         "--inr_act_type",
@@ -231,18 +299,46 @@ def set_opts():
         type=str,
         default="True",
         choices=["True", "False"],
+        help="Whether to enable pretraining phase",
     )  # True, False
     parser.add_argument(
         "--loading_pretrained_model",
         type=str,
         default="True",
         choices=["True", "False"],
+        help="Whether to load pretrained model weights",
     )
-    parser.add_argument("--log_option", type=str, default="True", choices=["True", "False"])
-    parser.add_argument("--pretraining_num_iter", type=int, default=1000)  # 2500
-    parser.add_argument("--pretraining_lr", type=float, default=1e-3)
-    parser.add_argument("--training_num_iter", type=int, default=2000)
-    parser.add_argument("--training_lr_obj", type=float, default=1e-3)
+    parser.add_argument(
+        "--log_option",
+        type=str,
+        default="True",
+        choices=["True", "False"],
+        help="Whether to enable logging during training",
+    )
+    parser.add_argument(
+        "--pretraining_num_iter",
+        type=int,
+        default=1000,
+        help="Number of iterations for pretraining phase",
+    )  # 2500
+    parser.add_argument(
+        "--pretraining_lr",
+        type=float,
+        default=1e-3,
+        help="Learning rate for pretraining phase",
+    )
+    parser.add_argument(
+        "--training_num_iter",
+        type=int,
+        default=2000,
+        help="Number of iterations for main training phase",
+    )
+    parser.add_argument(
+        "--training_lr_obj",
+        type=float,
+        default=1e-3,
+        help="Learning rate for object network during main training",
+    )
 
     # title: Loss function control
     parser.add_argument(

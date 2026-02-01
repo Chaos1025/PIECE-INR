@@ -29,6 +29,9 @@ Code Repository of [*<u>**P**</u>hysics-<u>**I**</u>nformed <u>**E**</u>llipsoid
   <img src="./pic/PIECE-INR_pipeline.svg" alt="PIECE-INR_pipeline">
 </div>
 
+# Update
+- **2026.02.01**: Enhance the visualization and monitoring of multi-processes progress bar
+- **2025.07.08**: Add performance comprison with [Instant-NGP](https://github.com/NVlabs/instant-ngp) implementation
 
 # Python Packages
 Here are versions of some important python package.
@@ -95,7 +98,7 @@ Create a shell script to specify your experiment configuration, including:
 - Training epoches 
 - Other runtime parameters
 
-A template script is available [here](./scripts/demo.sh). For a comprehensive description of all command-line arguments, run:
+A template script is available [here](./scripts/demo.sh). For a comprehensive description of all command-line arguments, you can run:
 ```bash
 python opt.py -h
 ```
