@@ -16,7 +16,7 @@ import torch.nn as nn
 from misc.models import *
 from misc.utils import *
 from misc.losses import *
-from misc.architechture import SIREN, Gauss, WIRE, HashGridNeRF
+from misc.architechture import SIREN, WIRE, HashGridNeRF
 
 data_fidelity_fun = {"mse": mse_loss, "mae": mae_loss, "ssim": ssim_loss}
 import misc.visualize as vis
@@ -105,7 +105,7 @@ class WarmupCosineAnnealingLR(_LRScheduler):
         else:
             # cosing annealing
             self.cosine_scheduler.last_epoch = self.last_epoch - self.warmup_epochs
-            return self.cosine_scheduler.get_lr()
+            return self.cosine_scheduler.get_last_lr()
 
 
 class Micro3DReconstructor(nn.Module):
@@ -127,7 +127,12 @@ class Micro3DReconstructor(nn.Module):
     """
 
     def __init__(
-        self, args, DataLoader: ld.MicroDataLoader, PhysManager: PhysicsParamsManager, device=DEVICE
+        self,
+        args,
+        DataLoader: ld.MicroDataLoader,
+        PhysManager: PhysicsParamsManager,
+        device=DEVICE,
+        progress_state=None,
     ):
         super().__init__()
         self.DataLoader = DataLoader
@@ -136,6 +141,7 @@ class Micro3DReconstructor(nn.Module):
         self.projection_type = args.projection_type
         self.net_obj_save_path_pretrained_prefix = args.net_obj_save_path_pretrained_prefix
         self.device = device
+        self.progress_state = progress_state
 
         if args.log_option == "False":
             Logger.get_instance().set_ability(False)
@@ -150,17 +156,9 @@ class Micro3DReconstructor(nn.Module):
 
         self.i_index, self.j_index = name2index(args.data_stack_name)
 
-        print(
-            "Soure data dir: {},\n Saving dir: {},\n Step image dir: {}".format(
-                args.root_dir, args.save_dir, args.step_image_dir
-            )
-        )
         self.net_obj_save_path_pretrained = pretrain_model_path(args, "Seminerf")
         self.net_obj_save_path_trained = trained_model_path(args, "Seminerf")
         self.psf_shape = args.psf_shape
-
-        print("Pretrained network object save path: {}".format(self.net_obj_save_path_pretrained))
-        print("Trained network object save path: {}".format(self.net_obj_save_path_trained))
 
         data_pack = self.load_data()
         self.y_max = data_pack["y_max"]
@@ -185,8 +183,6 @@ class Micro3DReconstructor(nn.Module):
             INPUT_WIDTH + lateral_padding,
             INPUT_HEIGHT + lateral_padding,
         )
-        print("Coordinates shape: {}".format(self.coord_shape))
-        print("Effective recovery shape: {}".format(self.recover_shape))
 
         space_region = input_space_3d(*self.coord_shape)  # [d, h, w, 3]
         self.coordinates = space2coord(space_region).to(self.device)  # [d*h*w, 3]
@@ -269,7 +265,6 @@ class Micro3DReconstructor(nn.Module):
         psf_ = data_pack["psf"]
         y_ = data_pack["y"]
         init_data_ = data_pack["init_data"]
-        print("Block size: {}, PSF size: {}".format(y_.shape, psf_.shape))
 
         self.ref_exist = False
         if "ref" in data_pack.keys():
@@ -362,7 +357,6 @@ class Micro3DReconstructor(nn.Module):
         """
         # pretraining control
         if not self.args.pretraining == "True":
-            print("Do not pretrain.")
             return None
         elif self.args.loading_pretrained_model == "True" and os.path.exists(
             self.net_obj_save_path_pretrained
@@ -381,17 +375,20 @@ class Micro3DReconstructor(nn.Module):
         loss_list = np.empty(shape=(1 + args.pretraining_num_iter,))
         loss_list[:] = np.NaN
 
-        tbar = tqdm(
-            range(args.pretraining_num_iter + 1),
-        )
-
         win_params = self.PhysManager.WIN_params(self.recover_shape)
         fdmae_loss = GFDMAE_Loss(self.recover_shape, win_params, device=self.device)
         hybrid_loss = lambda x, y: (ssim_loss(x, y) + fdmae_loss(x, y)) / 2
         pretrain_loss_dict = {"hybrid": hybrid_loss, "mse": mse_loss, "ssim_loss": ssim_loss}
         pretrain_loss = pretrain_loss_dict[args.pretrain_loss]
-
         init_data = self.init_data
+
+        if self.progress_state is None:
+            tbar = tqdm(
+                range(args.pretraining_num_iter + 1),
+            )
+        else:
+            tbar = range(args.pretraining_num_iter + 1)
+
         for step in tbar:
             out_x = self.infer(self.coordinates)
 
@@ -407,10 +404,18 @@ class Micro3DReconstructor(nn.Module):
             out_x_max = out_x_m.max().detach().cpu().numpy()
             out_x_min = out_x_m.min().detach().cpu().numpy()
 
-            tbar.set_description(
-                "Loss: %.6f|x_max: %.6f|x_min: %.6f" % (loss.item(), out_x_max, out_x_min)
-            )
-            tbar.refresh()
+            desc_str = "Loss: %.3e|x_max: %.4f|x_min: %.4f" % (loss.item(), out_x_max, out_x_min)
+
+            if self.progress_state is None:
+                tbar.set_description(desc_str)
+                tbar.refresh()
+            else:
+                # 上报进度到主进程
+                self.progress_state[(self.device.index, self.i_index, self.j_index, "pretrain")] = {
+                    "step": step,
+                    "total": args.pretraining_num_iter,
+                    "desc": desc_str,
+                }
 
         fit_y_np = out_x_m.detach().cpu().numpy()
         vis.display_stack_MIP(fit_y_np, "Pretrain Fit", self.projection_type, "gray", args.save_dir)
@@ -420,9 +425,6 @@ class Micro3DReconstructor(nn.Module):
 
         if self.args.saving_model == "True":
             torch.save(self.net.state_dict(), self.net_obj_save_path_pretrained)
-            print("Pretrained model saved to " + self.net_obj_save_path_pretrained)
-        else:
-            print("Do not save pretrained model.")
 
         return None
 
@@ -455,9 +457,13 @@ class Micro3DReconstructor(nn.Module):
         fdmae_loss = GFDMAE_Loss(self.recover_shape, win_params, device=self.device)
 
         self.net.train()
-        tbar = tqdm(
-            range(args.training_num_iter + 1),
-        )
+        if self.progress_state is None:
+            tbar = tqdm(
+                range(args.training_num_iter + 1),
+            )
+        else:
+            tbar = range(args.training_num_iter + 1)
+
         for step in tbar:
             obj = self.infer(self.coordinates)
 
@@ -522,8 +528,15 @@ class Micro3DReconstructor(nn.Module):
                         pred_max,
                         pred_min,
                     )
-            tbar.set_description(tbar_str)
-            tbar.refresh()
+            if self.progress_state is None:
+                tbar.set_description(tbar_str)
+                tbar.refresh()
+            else:
+                self.progress_state[(self.device.index, self.i_index, self.j_index, "train")] = {
+                    "step": step,
+                    "total": args.training_num_iter,
+                    "desc": tbar_str,
+                }
 
         vis.display_curve(-10 * np.log10(loss_list), "Training Loss Log10", args.save_dir, "loss")
         if self.ref_exist:
@@ -531,17 +544,13 @@ class Micro3DReconstructor(nn.Module):
                 -10 * np.log10(loss_val_list), "Validation PSNR", args.save_dir, "PSNR"
             )
             val_loss = torch.mean(torch.square(useful_obj / useful_obj.max() - self.ref)).item()
-            print("Validation PSNR: %.3fdB" % (-10 * np.log10(val_loss)))
+            # print("Validation PSNR: %.3fdB" % (-10 * np.log10(val_loss)))
         else:
-            print("No reference data, skip validation.")
             loss = torch.mean(
                 torch.square((useful_meas_pred + self.y_min) / self.y_max - self.y)
             ).item()
-            print("PSNR comparing with measurement: %.3fdB" % (-10 * np.log10(loss)))
+            # print("PSNR comparing with measurement: %.3fdB" % (-10 * np.log10(loss)))
 
-        print("Max value of reconstructed object: %.3e" % torch.max(useful_obj).item())
-
-        print("Training finished.")
         self.recover_obj = useful_obj.detach().cpu().numpy() + self.y_min
         self.pred_meas = useful_meas_pred.detach().cpu().numpy()
         self.full_obj = obj.detach().cpu().numpy()
@@ -549,9 +558,6 @@ class Micro3DReconstructor(nn.Module):
 
         if self.args.saving_model == "True":
             torch.save(self.net.state_dict(), self.net_obj_save_path_trained)
-            print("Trained network saved to " + self.net_obj_save_path_trained)
-        else:
-            print("Trained network not saved.")
 
         return None
 
@@ -573,7 +579,7 @@ class Micro3DReconstructor(nn.Module):
             psnr = -10 * np.log10(
                 np.mean(np.square(self.recover_obj / self.recover_obj.max() - ref))
             )
-            print("Validation PSNR: %.3fdB on block (%d, %d)" % (psnr, self.i_index, self.j_index))
+            # print("Validation PSNR: %.3fdB on block (%d, %d)" % (psnr, self.i_index, self.j_index))
         else:
             vis.display_multistack_MIP(
                 [y, self.pred_meas, self.recover_obj],
@@ -590,6 +596,16 @@ class Micro3DReconstructor(nn.Module):
 
     def forward(self):
         self.pretrain()
+
+        # Switch to training phase
+        if self.progress_state is not None and self.args.pretraining == "True":
+            self.progress_state["phase_switch"] = {
+                "gpu_id": self.device.index,
+                "i_index": self.i_index,
+                "j_index": self.j_index,
+                "new_phase": "train",
+                "total_iter": self.args.training_num_iter,
+            }
 
         self.train()
 

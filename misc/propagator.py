@@ -16,8 +16,6 @@ class PhysicalPropagator:
     def __init__(self, psf: torch.Tensor, obj_shape: tuple, psf_shape: tuple, boundary=None):
         self.obj_shape = obj_shape
         self.psf_shape = psf_shape
-        print("obj_shape in PP : ", obj_shape)
-        print("psf_shape in PP : ", psf_shape)
         self.boundary = boundary
         assert all(
             [psf_shape[i] >= psf.shape[i] for i in range(3)]

@@ -9,7 +9,6 @@ from torch import nn
 import torch.nn.functional as F
 import numpy as np
 import random
-import tinycudann as tcnn
 
 
 class none_func(nn.Module):
@@ -544,6 +543,8 @@ class HashGridNeRF(nn.Module):
     def __init__(
         self, hash_grid_config, nerf_hid_dim=128, nerf_hid_layer_num=5, dtype=None
     ) -> None:
+        import tinycudann as tcnn
+
         super().__init__()
 
         self.hash_grid_config = hash_grid_config

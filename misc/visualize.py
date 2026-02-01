@@ -2,13 +2,11 @@ import numpy as np
 from matplotlib import pyplot as plt
 import torch
 import os
-import tifffile
 import sys
 from typing import Union
 from skimage.transform import resize
 
 sys.path.append("./")
-# from utils import torch_to_np
 
 proj_funcs = {"max": np.max, "mean": np.mean, "min": np.min}
 
@@ -35,7 +33,6 @@ def display_stack_MIP(
     ValueError: If the input object is not 3D or the save directory does not exist.
     """
     if type(obj) is torch.Tensor:
-        # obj = torch_to_np(obj)
         obj = obj.detach().cpu().numpy()
 
     if not len(obj.shape) == 3:  # [Z, Y, X]
@@ -66,15 +63,12 @@ def display_stack_MIP(
     plt.subplot(1, 3, 1)
     plt.imshow(proj_xy, cmap=cmap)
     plt.title("XY MIP")
-    # plt.colorbar()
     plt.subplot(1, 3, 2)
     plt.imshow(proj_xz, cmap=cmap)
     plt.title("XZ MIP")
-    # plt.colorbar()
     plt.subplot(1, 3, 3)
     plt.imshow(proj_yz, cmap=cmap)
     plt.title("YZ MIP")
-    # plt.colorbar()
     plt.suptitle(title)
     if save_dir is not None:
         plt.savefig(os.path.join(save_dir, title + ",MIP.png"), dpi=300)

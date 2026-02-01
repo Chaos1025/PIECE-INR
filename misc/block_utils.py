@@ -41,17 +41,6 @@ class Block_Scheduler(nn.Module):
         # self.lateral_block_num = (h - self.lateral_view) // self.step_size + 1
 
         self.rec_stack = np.zeros_like(whole_stack, np.float32)
-        print(
-            "Split the whole FOV measurement into {}x{} sub-blocks".format(
-                self.height_block_num, self.width_block_num
-            )
-        )
-        print(
-            "Each sub-block has size of {}x{}x{}".format(
-                self.axial_view, self.lateral_view, self.lateral_view
-            )
-        )
-        print("The overlap between sub-blocks is {}".format(self.lateral_overlap))
 
     def get_global_mask(self):
         """

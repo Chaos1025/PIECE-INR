@@ -17,15 +17,15 @@ TIME_FORMAT_STR: str = "%b_%d_%H_%M_%S"
 # leading up to the snapshot.
 MAX_NUM_OF_MEM_EVENTS_PER_SNAPSHOT: int = 100000
 
+
 def start_record_memory_history() -> None:
     if not torch.cuda.is_available():
         logger.info("CUDA unavailable. Not recording memory history")
         return
 
     logger.info("Starting snapshot record_memory_history")
-    torch.cuda.memory._record_memory_history(
-        max_entries=MAX_NUM_OF_MEM_EVENTS_PER_SNAPSHOT
-    )
+    torch.cuda.memory._record_memory_history(max_entries=MAX_NUM_OF_MEM_EVENTS_PER_SNAPSHOT)
+
 
 def stop_record_memory_history() -> None:
     if not torch.cuda.is_available():
@@ -34,6 +34,7 @@ def stop_record_memory_history() -> None:
 
     logger.info("Stopping snapshot record_memory_history")
     torch.cuda.memory._record_memory_history(enabled=None)
+
 
 def export_memory_snapshot() -> None:
     if not torch.cuda.is_available():

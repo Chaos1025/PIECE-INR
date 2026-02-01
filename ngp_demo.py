@@ -178,6 +178,8 @@ if __name__ == "__main__":
 
     # title: Pretraining
     try:
+        if args.loading_pretrained_model != "True":
+            raise Exception("Do not load pretrained model")
         net.load_state_dict(torch.load(pretrain_model_store_path))
         print("Pre-trained model loaded.")
     except Exception as e:

@@ -203,7 +203,7 @@ def set_opts():
         "--inr_act_type",
         type=str,
         default="ReLU",
-        choices=["ReLU", "SIREN", "Gauss", "WIRE", "HashGrid"],
+        choices=["ReLU", "SIREN", "WIRE", "HashGrid"],
         help="Choose activation function for the network. Determines the network architecture. Prior to 'encoding_option'.",
     )
     parser.add_argument(

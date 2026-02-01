@@ -11,6 +11,7 @@ from argparse import Namespace
 import copy
 import json
 import tifffile as tiff
+import numpy as np
 
 from misc.utils import *
 import misc.visualize as vis
@@ -18,6 +19,7 @@ import misc.loading_data as ld
 from misc.block_utils import Block_Scheduler
 from misc.metrics import reconstruction_metric
 from misc.physics_params import PhysicsParamsManager
+from misc.progress_manager import ProgressManager
 
 from opt import init_opts, load_opts, save_opts
 from fluor_rec3d import Micro3DReconstructor, Logger
@@ -45,6 +47,59 @@ def warmup_gpu(gpu_id):
     return
 
 
+def progress_monitor(
+    progress_state,
+    completed_count,
+    total_gpus,
+    row_num,
+    progress_manager: ProgressManager,
+    block_counts,
+):
+    """主进程进度监控线程 - 定期刷新进度条
+
+    Args:
+        progress_state: 共享进度状态字典
+        completed_count: 已完成的 GPU 数量
+        total_gpus: 总 GPU 数
+        progress_manager: ProgressManager 实例
+        block_counts: 每个 GPU 的块数 {gpu_id: count}
+    """
+    import time
+
+    while completed_count.value < total_gpus:
+        # 处理块开始事件
+        if "block_start" in progress_state:
+            info = progress_state.pop("block_start")
+            progress_manager.start_block(
+                info["gpu_id"], info["block_id"], info["total_iter"], info["phase"]
+            )
+
+        # 处理阶段切换事件 (pretrain -> train)
+        if "phase_switch" in progress_state:
+            info = progress_state.pop("phase_switch")
+            i, j = (info["i_index"], info["j_index"])
+            block_id = ij2index(i, j, row_num)
+            progress_manager.switch_phase(
+                info["gpu_id"], block_id, info["total_iter"], info["new_phase"]
+            )
+
+        # 更新迭代进度
+        for key, info in list(progress_state.items()):
+            if isinstance(key, tuple) and len(key) == 4:
+                gpu_id, i_idx, j_idx, phase = key
+                block_id = ij2index(i_idx, j_idx, row_num)
+                step = info.get("step", 0)
+                total = info.get("total", 1)
+                desc = info.get("desc", "")
+
+                progress_manager.update_iter_progress(gpu_id, block_id, phase, step, total, desc)
+
+        time.sleep(0.1)  # 每100ms刷新一次
+
+    # 清理剩余的状态
+    progress_manager.close()
+
+
 def process_image_block(
     block_list,
     gpu_id,
@@ -53,6 +108,8 @@ def process_image_block(
     refrence_splitter,
     args,
     physics_manager,
+    progress_state=None,
+    progress_manager=None,
 ):
 
     pretraining_num_iter = args.pretraining_num_iter
@@ -62,7 +119,6 @@ def process_image_block(
     col_num = block_splitter.width_block_num
 
     device = torch.device(f"cuda:{gpu_id}")
-    print(f"WORKING GPU ID: {gpu_id}")
     rec_blocks = {}
     for block_id in block_list:
         i, j = index2ij(block_id, row_num)
@@ -95,9 +151,25 @@ def process_image_block(
             ref=ref_block,
         )
 
-        print(f"Processing image block {block_id} on GPU {gpu_id}")
+        # Signal of processing new blocks
+        if progress_state is not None:
+            if args.pretraining == "True":
+                progress_state["block_start"] = {
+                    "gpu_id": gpu_id,
+                    "block_id": block_id,
+                    "phase": "pretrain",
+                    "total_iter": args.pretraining_num_iter,
+                }
+            else:
+                progress_state["block_start"] = {
+                    "gpu_id": gpu_id,
+                    "block_id": block_id,
+                    "phase": "train",
+                    "total_iter": args.training_num_iter,
+                }
 
-        ReConstructor = Micro3DReconstructor(args, loader, physics_manager, device)
+        ReConstructor = Micro3DReconstructor(args, loader, physics_manager, device, progress_state)
+
         rec_block, i, j = ReConstructor()
         rec_blocks[block_id] = rec_block
 
@@ -238,40 +310,74 @@ def main(args, i_index: list = [], j_index: list = [], gpu_list: list = []):
     # title: Multi-processing
     if num_gpus > 1:
         print("Start Multi-thread Processing")
-        pool = mp.Pool(processes=num_gpus)
-        for gpu_id in gpu_list:
-            pool.apply(warmup_gpu, (gpu_id,))
-            print("GPU WARMING UP")
 
+        progress_manager = ProgressManager()
         for gpu_id in gpu_list:
-            current_block_list = gpu_block_dict[gpu_id]
+            progress_manager.create_gpu_progress(gpu_id, len(gpu_block_dict[gpu_id]))
 
-            results.append(
-                pool.apply_async(
-                    process_image_block,
-                    (
-                        current_block_list,
-                        gpu_id,
-                        block_splitter,
-                        initial_splitter,
-                        reference_splitter,
-                        block_args,
-                        physics_manager,
-                    ),
-                )
+        # Share progress bar
+        with mp.Manager() as manager:
+            progress_state = manager.dict()
+            completed_count = mp.Value("i", 0)
+            block_counts = {gpu_id: len(gpu_block_dict[gpu_id]) for gpu_id in gpu_list}
+
+            # Launch monitor thread
+            import threading
+
+            monitor_thread = threading.Thread(
+                target=progress_monitor,
+                args=(
+                    progress_state,
+                    completed_count,
+                    num_gpus,
+                    row_num,
+                    progress_manager,
+                    block_counts,
+                ),
             )
+            monitor_thread.start()
 
-        pool.close()
-        pool.join()
+            pool = mp.Pool(processes=num_gpus)
+            for gpu_id in gpu_list:
+                pool.apply(warmup_gpu, (gpu_id,))
 
-        # merge blocks
-        for r in results:
-            blocks = r.get()
-            for block_id, block in blocks.items():
-                i, j = index2ij(block_id, row_num)
-                block_splitter.feedback_recovered_block(i, j, block)
+            for gpu_id in gpu_list:
+                current_block_list = gpu_block_dict[gpu_id]
+
+                results.append(
+                    pool.apply_async(
+                        process_image_block,
+                        (
+                            current_block_list,
+                            gpu_id,
+                            block_splitter,
+                            initial_splitter,
+                            reference_splitter,
+                            block_args,
+                            physics_manager,
+                            progress_state,
+                        ),
+                    )
+                )
+
+            pool.close()
+            pool.join()
+
+            # All tasks of GPU are completed
+            with completed_count.get_lock():
+                completed_count.value = num_gpus
+
+            monitor_thread.join()
+
+            # merge blocks
+            for r in results:
+                blocks = r.get()
+                for block_id, block in blocks.items():
+                    i, j = index2ij(block_id, row_num)
+                    block_splitter.feedback_recovered_block(i, j, block)
+
     elif num_gpus == 1:
-        print("Start Single Thread Processing")
+        print("Start with Single Process")
         gpu_id = gpu_list[0]
         rec_blocks = process_image_block(
             gpu_block_dict[gpu_id],
@@ -281,6 +387,7 @@ def main(args, i_index: list = [], j_index: list = [], gpu_list: list = []):
             reference_splitter,
             block_args,
             physics_manager,
+            progress_state=None,
         )
         for block_id, block in rec_blocks.items():
             i, j = index2ij(block_id, row_num)
@@ -318,6 +425,10 @@ def main(args, i_index: list = [], j_index: list = [], gpu_list: list = []):
 
 if __name__ == "__main__":
     mp.set_start_method("spawn")
+    # Suppress tinycudann compute capability warning
+    warnings.filterwarnings(
+        "ignore", message="System has multiple GPUs with different compute capabilities"
+    )
 
     warnings.filterwarnings("ignore")
     gfp = custom_div_cmap(2**16 - 1, mincol="#000000", midcol="#00FF00", maxcol="#FFFFFF")

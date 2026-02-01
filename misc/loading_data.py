@@ -77,7 +77,7 @@ class MicroDataLoader:
         data = (data - min_data) / (
             max_data - min_data
         )  # Subtract minimum value (constant background) and normalize sample
-        print("Normalize data from [{},{}] to [0,1]".format(min_data, max_data))
+        # print("Normalize data from [{},{}] to [0,1]".format(min_data, max_data))
         return data
 
     def load_external_psf(self, psf_shape, psf_dir: str) -> np.ndarray:
@@ -88,7 +88,7 @@ class MicroDataLoader:
             psf_ = loadmat(psf_dir)["psf"]
             # Matlab use a different sequence of axis
             psf_ = np.transpose(psf_, (2, 1, 0)).astype(np.float32)
-        print("Load PSF from external file with shape of: ", psf_.shape)
+        # print("Load PSF from external file with shape of: ", psf_.shape)
         if psf_shape is not None and psf_.shape != psf_shape:
             # if shape diff is even, adjust shape equally
             # if odd, adjust like [N//2, N//2+1]
@@ -112,7 +112,6 @@ class MicroDataLoader:
         if self.measurement is None:
             y_ = self.load_data(self.data_dir)
         else:
-            print("load measurement from input")
             y_ = self.measurement
         sample_shape = y_.shape
         y_max = y_.max()
@@ -150,10 +149,10 @@ class MicroDataLoader:
         ret_pack["init_data"] = self.init_data / ret_pack["init_max"]
         ret_pack["y_shape"] = sample_shape
 
-        print("PSF shape after loading: ", psf_.shape)
-        print("Measurement shape after loading: ", y_.shape)
-        print("Maximum value of measurement: ", y_max)
-        print("Minimum value of measurement: ", y_min)
+        # print("PSF shape after loading: ", psf_.shape)
+        # print("Measurement shape after loading: ", y_.shape)
+        # print("Maximum value of measurement: ", y_max)
+        # print("Minimum value of measurement: ", y_min)
 
         return ret_pack
 
@@ -182,11 +181,11 @@ class gibsonPSFGenerator:
             self.mp, self.units[1], self.shape[1], self.zv, wvl=self.wave_length
         )
         psf = psf / np.sum(psf, axis=(1, 2), keepdims=True)
-        print(
-            "Generate PSF with shape: ",
-            psf.shape,
-            " and units: ",
-            self.units,
-            ", using Gibson-Lanni model.",
-        )
+        # print(
+        #     "Generate PSF with shape: ",
+        #     psf.shape,
+        #     " and units: ",
+        #     self.units,
+        #     ", using Gibson-Lanni model.",
+        # )
         return psf / np.sum(psf)
