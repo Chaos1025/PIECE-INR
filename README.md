@@ -69,11 +69,11 @@ The `config.yaml` file specify the physical parameters of the wide-field microsc
 | `psf_dx`, `psf_dy` | Lateral pixel size of wide-field microscopy (um) |
 
 
-As an example, we provide the [simulated Purkinje cell sample](./source/purkinje/) in Fig. 2D, which contain the GT (*`sample.tif`*, downloaded from [CIL Dataset](https://doi.org/doi:10.7295/W9CIL40021)), born-wolf model PSF (*`psf.tif`*), simulated wide-field measurement (*`measurement.tif`*) and config file (*`config.yaml`*). 
+As an example, we provide the [simulated Purkinje cell sample](./source/purkinje/) in Fig. 2, which contain the GT (*`sample.tif`*, downloaded from [CIL Dataset](https://doi.org/doi:10.7295/W9CIL40021)), born-wolf model PSF (*`psf.tif`*), simulated wide-field measurement (*`measurement.tif`*) and config file (*`config.yaml`*). 
 
 
 # Quick Start
-You can use PIECE-INR for reconstruction with our provided *purkinje cell* demo (displayed in our Fig. 2D) by running:
+You can use PIECE-INR for reconstruction with our provided *purkinje cell* demo (displayed in our Fig. 2) by running:
 ``` Bash
 bash scripts/purkinje.sh
 ```
@@ -84,7 +84,7 @@ For convenience, all the required options can be found in the corresponding shel
 Specify the physical parameters of your experimental system setup in the `config.yaml` properly, which should be located in your data directory `source/<your_own_data_dir>`.
 
  
-### 2. Generate Point Spread Function (PSF) 
+### 2. Generating Point Spread Function (PSF) 
 Generate the PSF using the parameters defined above. We recommend the [dw_bw](https://github.com/elgw/deconwolf) tool from [Deconwolf](https://doi.org/10.1038/s41592-024-02294-7), which is based on the Born-Wolf model.
 
 ### 3. Create Experiment Configuration Script 
